@@ -27,34 +27,35 @@ void loop()
   Serial.print("IO1 analog values: ");
   for (int i=0; i<5; i++)
   {
-    if(IO1AnalogVals[i] > 700)
+    if(IO1AnalogVals[i] > 350)
     {
       Serial.print(" ");      
     }
-    else if(IO1AnalogVals[i] > 600)
+    else if(IO1AnalogVals[i] > 300)
     {
       Serial.print(".");  
     }
-     else if(IO1AnalogVals[i] > 500)
+     else if(IO1AnalogVals[i] > 250)
     {
       Serial.print("o");  
     }
-     else if(IO1AnalogVals[i] > 400)
+     else if(IO1AnalogVals[i] > 200)
     {
       Serial.print("O");  
     }
-     else if(IO1AnalogVals[i] > 300)
+     else if(IO1AnalogVals[i] > 150)
     {
       Serial.print("0");  
     }
-     else if(IO1AnalogVals[i] > 200)
+     else if(IO1AnalogVals[i] > 100)
     {
       Serial.print("*");  
     }
-     else if(IO1AnalogVals[i] > 100)
+     else if(IO1AnalogVals[i] > 0)
     {
       Serial.print("@");  
     }
+    
     
     Serial.print("_");
   }
