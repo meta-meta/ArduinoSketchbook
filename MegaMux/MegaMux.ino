@@ -4,6 +4,27 @@
 
 MuxShield muxShield;
 const int NUM_MUXES = 15;
+const int muxesInitialMode[NUM_MUXES] = {
+	ANALOG_IN,
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+	ANALOG_IN,
+
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+	DIGITAL_OUT,
+};
 
 char inByte;
 String command;
@@ -19,14 +40,21 @@ CRGB leds[NUM_LEDS];
 
 void setup()
 {
+	// set initial mode for each mux
 	for (int i = 0; i < NUM_MUXES; i++) {
-		muxShield.setMode(i + 1, ANALOG_IN);
-		modes[i] = ANALOG_IN;
+		muxShield.setMode(i + 1, muxesInitialMode[i]);
+		modes[i] = muxesInitialMode[i];
 	}
 
 	FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
 
-	//  Serial.begin(115200);
+	for (int i = 0; i < NUM_LEDS; i++)
+	{
+		leds[i].setHSV(i * 255 / 12, 255, 255);
+	}
+	FastLED.show();
+
+	Serial.begin(115200);
 }
 
 // 140000101100000100 => set output pins to 0,0,0,0,1,0,1,1,0,0,0,0,0,1,0,0 on Mux 14
@@ -42,7 +70,21 @@ void digitalOut(String outputString)
 
 	//MuxShield library is 1 based
 	muxShield.digitalWriteMS(mux + 1, vals);
+}
 
+// HUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVALHUESATVAL
+// 000255255000255255000255255000255255000255255000255255000255255000255255000255255000255255000255255000255255
+void led(String ledString)
+{	
+	for (int i = 0; i < NUM_LEDS; i++)
+	{
+		leds[i].setHSV(
+			ledString.substring(i * 9 + 0, i * 9 + 3).toInt(),
+			ledString.substring(i * 9 + 1, i * 9 + 4).toInt(),
+			ledString.substring(i * 9 + 2, i * 9 + 5).toInt()
+		);
+	}
+	FastLED.show();
 }
 
 // 140 => set Mux 14 to DIGITAL_IN mode
@@ -58,61 +100,72 @@ void setMode(String modeString)
 	muxShield.setMode(mux + 1, mode);
 }
 
+void sendBinary(int value)
+{
+	// send the two bytes that comprise an integer
+	Serial.write(lowByte(value));  // send the low byte
+	Serial.write(highByte(value)); // send the high byte
+}
+
 void loop()
 {
-	//  // Input serial information:
-	//  while (Serial.available() > 0){
-	//    inByte = Serial.read();
-	//
-	//    // only input if a letter, number, =,?,+ are typed!
-	//    if ((inByte >= 65 && inByte <= 90) || (inByte >=97 && inByte <=122) || (inByte >= 48 && inByte <=57) || inByte == 43 || inByte == 61 || inByte == 63) {
-	//      command.concat(inByte);
-	//    }
-	//  }
-	//
-	//  // Process command when NL/CR are entered:
-	//  if (inByte == 10 || inByte == 13){
-	//    inByte = 0;
-	//
-	//    switch(command[0]) {
-	//      case 'M':
-	//        setMode(command.substring(1));
-	//        break;
-	//      case 'O':
-	//        digitalOut(command.substring(1));
-	//        break;
-	//    }
-	//
-	//    command = "";
-	//  }
-	//
-	//  // prints I14,0,0,3,10,240,1000,0,0,0,12,0,0,4,0,0,0 where 14 is mux14
-	//  for(int i = 0; i < NUM_MUXES; i++) {
-	//    if(modes[i] != ANALOG_IN)
-	//      continue;
-	//
-	//    Serial.print("I");
-	//    Serial.print(i);
-	//    Serial.print(",");
-	//
-	//    for(int j = 0; j < 16; j++) {
-	//      Serial.print(muxShield.analogReadMS(i + 1, j));
-	//
-	//      if(j < 15)
-	//        Serial.print(",");
-	//    }
-	//
-	//    Serial.println("");
-	//  }
+	  // Input serial information:
+	  while (Serial.available() > 0){
+	    inByte = Serial.read();
+	
+	    // only input if a letter, number, =,?,+ are typed!
+	    if ((inByte >= 65 && inByte <= 90) || (inByte >=97 && inByte <=122) || (inByte >= 48 && inByte <=57) || inByte == 43 || inByte == 61 || inByte == 63) {
+	      command.concat(inByte);
+	    }
+	  }
+	
+	  // Process command when NL/CR are entered:
+	  if (inByte == 10 || inByte == 13){
+	    inByte = 0;
+	
+	    switch(command[0]) {
+	      case 'M':
+	        setMode(command.substring(1));
+	        break;
+	      case 'O':
+	        digitalOut(command.substring(1));
+	        break;
+		  case 'L':
+			led(command.substring(1));
+			break;
+	    }
+	
+	    command = "";
+	  }
+	
+	  // prints I14,0,0,3,10,240,1000,0,0,0,12,0,0,4,0,0,0 where 14 is mux14
+	  for(int i = 0; i < NUM_MUXES; i++) {
+	    if(modes[i] != ANALOG_IN)
+	      continue;
+	
+	   /* Serial.print("I");
+	    Serial.print(i);
+	    Serial.print(",");
+	
+	    for(int j = 0; j < 16; j++) {
+	      Serial.print(muxShield.analogReadMS(i + 1, j));
+	
+	      if(j < 15)
+	        Serial.print(",");
+	    }
+	
+	    Serial.println("");*/
 
-	static uint8_t hue = 0;
-	int m = millis();
-	hue+= 255 / 120;
+		
+		Serial.print("B");
+		sendBinary(i);
+		for (int j = 0; j < 16; j++) {
+			sendBinary(muxShield.analogReadMS(i + 1, j));
+		}
+		Serial.print(";");
 
-	for (int i = 0; i < NUM_LEDS; i++)
-	{
-		leds[i].setHSV((hue + (i * 255 / 12)) % 255, 255 * sin((hue + i) * 57 * m * 0.0001), 255 * abs(sin((i + hue) * 13 * m * 0.0001)));
-	}
-	FastLED.show();
-	delay(10);
+	  }
+
+	
+	//delay(10);
 }
