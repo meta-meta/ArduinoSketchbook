@@ -38,6 +38,8 @@ int vals[16] = { 0 };
 #define NUM_LEDS 12
 CRGB leds[NUM_LEDS];
 
+unsigned int rotationCount = 0;
+
 void setup()
 {
 	// set initial mode for each mux
@@ -54,7 +56,16 @@ void setup()
 	}
 	FastLED.show();
 
+	attachInterrupt(4, onIrSensor, RISING); // pin 19 = interrupt 4. 20 and 21 are interrupts but are high by default  https://forum.arduino.cc/index.php?topic=158434.0
+
 	Serial.begin(115200);
+	Serial.println("yo yo");
+
+}
+
+void onIrSensor()
+{
+	rotationCount++;
 }
 
 // 140000101100000100 => set output pins to 0,0,0,0,1,0,1,1,0,0,0,0,0,1,0,0 on Mux 14
@@ -137,7 +148,7 @@ void loop()
 	
 	    command = "";
 	  }
-	
+
 	  // prints I14,0,0,3,10,240,1000,0,0,0,12,0,0,4,0,0,0 where 14 is mux14
 	  for(int i = 0; i < NUM_MUXES; i++) {
 	    if(modes[i] != ANALOG_IN)
@@ -156,7 +167,7 @@ void loop()
 	
 	    Serial.println("");*/
 
-		
+		// Mux inputs
 		Serial.print("B");
 		sendBinary(i);
 		for (int j = 0; j < 16; j++) {
@@ -164,6 +175,10 @@ void loop()
 		}
 		Serial.print(";");
 
+		// Rotations - IR sensor
+		Serial.print("R");
+		sendBinary(rotationCount);
+		Serial.print(";");
 	  }
 
 	
