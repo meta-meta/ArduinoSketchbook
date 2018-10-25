@@ -39,6 +39,7 @@ int vals[16] = { 0 };
 CRGB leds[NUM_LEDS];
 
 unsigned int rotationCount = 0;
+unsigned long prevMillis = 0;
 
 void setup()
 {
@@ -174,13 +175,15 @@ void loop()
 			sendBinary(muxShield.analogReadMS(i + 1, j));
 		}
 		Serial.print(";");
-
-		// Rotations - IR sensor
-		Serial.print("R");
-		sendBinary(rotationCount);
-		Serial.print(";");
 	  }
 
-	
-	//delay(10);
+	  // Rotations - IR sensor
+	  if (rotationCount > 0) {
+		  Serial.print("R");
+		  sendBinary(rotationCount);
+		  Serial.print(";");
+		  rotationCount = 0;
+	  }
+
+	//delay(100);
 }
