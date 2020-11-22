@@ -7,233 +7,181 @@
 #include "Arduino.h"
 #include "MuxShield.h"
 
-int _shiftReg1[16]={0};
-int _shiftReg2[16]={0};
-int _shiftReg3[16]={0};
+int _shiftReg[15][16] = {0};
 
-MuxShield::MuxShield(int S0, int S1, int S2, int S3, int OUTMD,int IOS1, int IOS2, int IOS3, int IO1, int IO2, int IO3)
-{
-    _S0 = S0;
-    _S1 = S1;
-    _S2 = S2;
-    _S3 = S3;
-    _OUTMD = OUTMD; 
-    _IOS1 = IOS1; 
-    _IOS2 = IOS2;
-    _IOS3 = IOS3;
-    _IO1 = IO1; 
-    _IO2 = IO2;
-    _IO3 = IO3;
-    
-    pinMode(_S0,OUTPUT);
-    pinMode(_S1,OUTPUT);
-    pinMode(_S2,OUTPUT);
-    pinMode(_S3,OUTPUT);
-    pinMode(_OUTMD,OUTPUT);
-    digitalWrite(_OUTMD,LOW);
-    pinMode(_IOS1,OUTPUT);
-    pinMode(_IOS2,OUTPUT);
-    pinMode(_IOS3,OUTPUT);
-}
+// Default pins
+int MuxShield::_S[4] = {
+        2,
+        4,
+        6,
+        7
+    };
+
+// Arduino Mega IO pins for software selecting Mux Mode in or out
+// these could all be eliminated if you want to do the solder jumper thing (see MuxShield manual)        
+int MuxShield::_IOS[15] = {
+        35,
+        36,
+        37,
+
+        38,
+        39,
+        40,
+
+        41,
+        42,    
+        43,
+
+        // 44 - 46 are PWM, so save them for something else
+        //  pin 11 is also PWM so let's not use that for digital writes
+
+        48,
+        49,
+        50,
+
+        51,
+        52,
+        53
+    };
+
+// These are used to read and write to each mux
+int MuxShield::_IO[15] = {
+    // I messed up the wiring so not in order (faster to change code than wires)
+
+        // Mux 1
+        A12,
+        A13,
+        A14,
+
+        // Mux 2
+        A9,
+        A10,
+        A11,
+
+        // Mux 3
+        A6,
+        A7,
+        A8,
+
+        // Mux 4
+        A3,
+        A4,
+        A5,
+
+        // Mux 5
+        A0,
+        A1,
+        A2
+    };
+
+int MuxShield::_OUTMD = 8;
 
 MuxShield::MuxShield()
 {
-    _S0 = 2;
-    _S1 = 4;
-    _S2 = 6;
-    _S3 = 7;
-    _OUTMD = 8; 
-    _IOS1 = 10; 
-    _IOS2 = 11;
-    _IOS3 = 12;
-    _IO1 = A0; 
-    _IO2 = A1;
-    _IO3 = A2;
-        
-    pinMode(_S0,OUTPUT);
-    pinMode(_S1,OUTPUT);
-    pinMode(_S2,OUTPUT);
-    pinMode(_S3,OUTPUT);
+    for(int i = 0; i < 4; i++) {
+        pinMode(_S[i], OUTPUT);
+    }
+
     pinMode(_OUTMD,OUTPUT);
     digitalWrite(_OUTMD,LOW);
-    pinMode(_IOS1,OUTPUT);
-    pinMode(_IOS2,OUTPUT);
-    pinMode(_IOS3,OUTPUT);
     
-    
+    for(int i = 0; i < 15; i++) {
+        pinMode(_IOS[i], OUTPUT);
+    }
 }
 
 void MuxShield::setMode(int mux, int mode) 
 {
-    switch (mux) {
-        case 1:
-            switch (mode) {
-                case DIGITAL_IN:
-                    pinMode(_IO1,INPUT);
-                    digitalWrite(_IOS1,LOW);
-                    break;
-                case DIGITAL_IN_PULLUP:
-                    pinMode(_IO1,INPUT_PULLUP);
-                    digitalWrite(_IOS1,LOW);
-                    break;
-                case DIGITAL_OUT:
-                    pinMode(_IO1,OUTPUT);
-                    digitalWrite(_IOS1,HIGH);
-                    break;
-                case ANALOG_IN:
-                    digitalWrite(_IOS1,LOW);
-                    break;
-                default:
-                    break;
-            }
+    int i = mux - 1;
+
+    switch (mode) {
+        case DIGITAL_IN:
+            pinMode(_IO[i],INPUT);
+            digitalWrite(_IOS[i],LOW);
             break;
-        case 2:
-            switch (mode) {
-                case DIGITAL_IN:
-                    pinMode(_IO2,INPUT);
-                    digitalWrite(_IOS2,LOW);
-                    break;
-                case DIGITAL_IN_PULLUP:
-                    pinMode(_IO2,INPUT_PULLUP);
-                    digitalWrite(_IOS2,LOW);
-                    break;
-                case DIGITAL_OUT:
-                    pinMode(_IO2,OUTPUT);
-                    digitalWrite(_IOS2,HIGH);
-                    break;
-                case ANALOG_IN:
-                    digitalWrite(_IOS2,LOW);
-                    break;
-                default:
-                    break;
-            }
+        case DIGITAL_IN_PULLUP:
+            pinMode(_IO[i],INPUT_PULLUP);
+            digitalWrite(_IOS[i],LOW);
             break;
-        case 3:
-            switch (mode) {
-                case DIGITAL_IN:
-                    pinMode(_IO3,INPUT);
-                    digitalWrite(_IOS3,LOW);
-                    break;
-                case DIGITAL_IN_PULLUP:
-                    pinMode(_IO3,INPUT_PULLUP);
-                    digitalWrite(_IOS3,LOW);
-                    break;
-                case DIGITAL_OUT:
-                    pinMode(_IO3,OUTPUT);
-                    digitalWrite(_IOS3,HIGH);
-                    break;
-                case ANALOG_IN:
-                    digitalWrite(_IOS3,LOW);
-                    break;
-                default:
-                    break;
-            }
+        case DIGITAL_OUT:
+            pinMode(_IO[i],OUTPUT);
+            digitalWrite(_IOS[i],HIGH);
+            break;
+        case ANALOG_IN:
+            digitalWrite(_IOS[i],LOW);
             break;
         default:
             break;
     }
-
 }
 
+// <1 milliseconds to write to 16 pins
+void MuxShield::digitalWriteMS(int mux, int vals[])
+{
+    int i = mux - 1;
+    int sIdx = i % 3;
+    
+    digitalWrite(_S[3],LOW);                              //S3 here is LCLK
+    digitalWrite(_OUTMD,HIGH);                          //set to output mode
+
+
+    for (int j = 15; j >= 0; j--) {
+        digitalWrite(_S[sIdx], LOW);                  //S0 here is i/o1 _sclk
+        
+        _shiftReg[i][j] = vals[j];              //store value until updated again
+
+        digitalWrite(_IO[i], _shiftReg[i][j]);       //put value
+        digitalWrite(_S[sIdx], HIGH);                 //lactch in value
+    }
+
+    
+    digitalWrite(_S[3],HIGH);                     //latch in ALL values
+    digitalWrite(_OUTMD,LOW);                   //Exit output mode
+}
+
+// 6 milliseconds to write to 16 pins
 void MuxShield::digitalWriteMS(int mux, int chan, int val)
 {
-    int i;
+    int i = mux - 1;
+    int sIdx = i % 3;
     
-    digitalWrite(_S3,LOW);                              //S3 here is LCLK
+    digitalWrite(_S[3],LOW);                              //S3 here is LCLK
     digitalWrite(_OUTMD,HIGH);                          //set to output mode
-    switch (mux) {
-        case 1:
-            _shiftReg1[chan] = val;                     //store value until updated again
-            
-            for (i=15; i>=0; i--) {
-                digitalWrite(_S0,LOW);                  //S0 here is i/o1 _sclk
-                digitalWrite(_IO1,_shiftReg1[i]);       //put value
-                digitalWrite(_S0,HIGH);                 //lactch in value
-            }
-            break;
-        case 2:
-            _shiftReg2[chan] = val;                     //store value until updated again
-            
-            for (i=15; i>=0; i--) {
-                digitalWrite(_S1,LOW);                  //S1 here is i/o2 _sclk
-                digitalWrite(_IO2,_shiftReg2[i]);       //put value
-                digitalWrite(_S1,HIGH);                 //lactch in value
-            }
-            break;
-        case 3:
-            _shiftReg3[chan] = val;                     //store value until updated again
-            
-            for (i=15; i>=0; i--) {
-                digitalWrite(_S2,LOW);                  //S2 here is i/o3 _sclk
-                digitalWrite(_IO3,_shiftReg3[i]);       //put value
-                digitalWrite(_S2,HIGH);                 //lactch in value
-            }
-            break;
-        default:
-            break;   
-    }
-    digitalWrite(_S3,HIGH);                     //latch in ALL values
-    digitalWrite(_OUTMD,LOW);                   //Exit output mode
     
+
+    _shiftReg[i][chan] = val;              //store value until updated again
+
+    for (int j = 15; j >= 0; j--) {
+        digitalWrite(_S[sIdx], LOW);                  //S0 here is i/o1 _sclk
+        digitalWrite(_IO[i], _shiftReg[i][j]);       //put value
+        digitalWrite(_S[sIdx], HIGH);                 //lactch in value
+    }
+
+    
+    digitalWrite(_S[3],HIGH);                     //latch in ALL values
+    digitalWrite(_OUTMD,LOW);                   //Exit output mode
 }
 
 int MuxShield::digitalReadMS(int mux, int chan)
 {
     digitalWrite(_OUTMD,LOW);   //Set outmode off (i.e. set as input mode)
-    int val;
-    switch (mux) {
-        case 1:
-            digitalWrite(_S0, (chan&1));    
-            digitalWrite(_S1, (chan&3)>>1); 
-            digitalWrite(_S2, (chan&7)>>2); 
-            digitalWrite(_S3, (chan&15)>>3); 
+    
+    digitalWrite(_S[0], (chan&1));    
+    digitalWrite(_S[1], (chan&3)>>1); 
+    digitalWrite(_S[2], (chan&7)>>2); 
+    digitalWrite(_S[3], (chan&15)>>3); 
 
-            val = digitalRead(_IO1); 
-            break;
-        case 2:
-            digitalWrite(_S0, (chan&1));    
-            digitalWrite(_S1, (chan&3)>>1); 
-            digitalWrite(_S2, (chan&7)>>2); 
-            digitalWrite(_S3, (chan&15)>>3); 
- 
-            val = digitalRead(_IO2); 
-            break;
-        case 3:
-            digitalWrite(_S0, (chan&1));    
-            digitalWrite(_S1, (chan&3)>>1); 
-            digitalWrite(_S2, (chan&7)>>2); 
-            digitalWrite(_S3, (chan&15)>>3); 
-
-            val = digitalRead(_IO3); 
-            break;
-        default:
-            break;
-    }
-    return val;
+    return digitalRead(_IO[mux - 1]); 
 }
 
 int MuxShield::analogReadMS(int mux, int chan)
 {
     digitalWrite(_OUTMD,LOW);
-    int val;
 
-    digitalWrite(_S0, (chan&1));    
-    digitalWrite(_S1, (chan&3)>>1); 
-    digitalWrite(_S2, (chan&7)>>2); 
-    digitalWrite(_S3, (chan&15)>>3); 
+    digitalWrite(_S[0], (chan&1));    
+    digitalWrite(_S[1], (chan&3)>>1); 
+    digitalWrite(_S[2], (chan&7)>>2); 
+    digitalWrite(_S[3], (chan&15)>>3); 
     
-    switch (mux) {
-        case 1:
-            val = analogRead(_IO1); 
-            break;
-        case 2:
-            val = analogRead(_IO2); 
-            break;
-        case 3:
-            val = analogRead(_IO3); 
-            break;
-        default:
-            break;
-    }
-    return val;
+    return analogRead(_IO[mux - 1]); 
 }
